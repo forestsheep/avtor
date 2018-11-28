@@ -4,7 +4,8 @@
             "js/jquery-2.0.0.min.js",
             "js/jquery.cookie.js",
             "js/background.js",
-            "js/util.js"
+            "js/util.js",
+            "js/comm.js"
         ]
     },
     "description": "找到你想要的种子",
@@ -33,5 +34,6 @@
         "http://thzu.cc/*",
         "http://www.dmm.co.jp/*"
     ],
+    "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
     "version": "0.0.0.1"
 }

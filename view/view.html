@@ -1,0 +1,39 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="../js/jquery-2.0.0.min.js"></script>
+    <script src="../js/vue.js"></script>
+    <script src="../js/util.js"></script>
+    <script src="../js/comm.js"></script>
+    <script src="view.js"></script>
+    <title>
+        pop
+    </title>
+    <link rel="stylesheet" type="text/css" href="view.css" />
+</head>
+
+<body>
+    <div id="avsearch">
+        <button  v-on:click="v2">列出所有标签</button>
+        <br/>
+        <br/>
+        <input class="search_textbox" v-model="in_genres">
+        <button id="xb" v-on:click="v1">查询</button>
+        <button id="xb" v-on:click="clearText">清除</button>
+        <div class="genre_lable_out">
+            <label class="sn_lable" v-for="item in sns" v-on:click="showImg">
+                {{item}}
+            </label>
+        </div>
+        <img class="preview_img" v-if="is_show_img" v-bind:src="img_url"  alt="x" />
+        <hr>
+        <div class="genre_lable_out">
+            <label class="genre_lable" v-for="(item, index) in genres_list" v-on:click="getIndex(index)">
+                {{item}}
+            </label>
+        </div>
+    </div>
+</body>
+
+</html>

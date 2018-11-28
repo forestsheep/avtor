@@ -1,29 +1,43 @@
 function v1stListPage() {
-    $.ajax({
-        url: "http://thzu.cc/forum-220-1.html",
-        method: "get",
-        async: true,
-        success: function (data, textStatus, jqXHR) {
-            analyzeList(data, true)
-        },
-        error: function (jqXHR, textStatus, errorThrown) {}
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: "http://thzu.cc/forum-220-1.html",
+            method: "get",
+            async: true,
+            success: function (data, textStatus, jqXHR) {
+                console.log("analzying first page")
+                analyzeList(data, true)
+                setTimeout(() => {
+                    resolve()
+                }, 30000);
+            },
+            error: function (jqXHR, textStatus, errorThrown) {}
+        })
     })
 }
 
-function vRemainListPage() {
-    for (let i = 2; i <= totalPageAmount; i++) {
+function vRemainListPage(resolve, reject) {
+    return new Promise((resolve, reject) => {
+        for (let i = 2; i <= totalPageAmount; i++) {
+            setTimeout(() => {
+                console.log("doing page " + i)
+                $.ajax({
+                    url: "http://thzbt.co/forum-220-" + i + ".html",
+                    method: "get",
+                    async: true,
+                    success: function (data, textStatus, jqXHR) {
+                        console.log("analyzing remain page")
+                        analyzeList(data, false)
+                    },
+                    error: function (jqXHR, textStatus, errorThrown) {}
+                })
+            }, 30000 * i)
+        }
         setTimeout(() => {
-            $.ajax({
-                url: "http://thzbt.co/forum-220-" + i + ".html",
-                method: "get",
-                async: true,
-                success: function (data, textStatus, jqXHR) {
-                    analyzeList(data, false)
-                },
-                error: function (jqXHR, textStatus, errorThrown) {}
-            })
-        }, 10000 * i)
-    }
+            console.log("remain page shoud be all done")
+            resolve()
+        }, 30000 * totalPageAmount + 30000);
+    })
 }
 
 function analyzeList(htmlResponse, isFirstPage) {
@@ -37,7 +51,7 @@ function analyzeList(htmlResponse, isFirstPage) {
         // console.log(dPages.text())
         let rtPages
         if (rtPages = new RegExp(/\d+/g).exec(dPages.text())) {
-            totalPageAmount = parseInt(rtPages[0]) - 470
+            totalPageAmount = parseInt(rtPages[0]) - 460
         }
     } else {
         cslinenext = "#threadlisttableid > tbody:nth-child(2)"
@@ -52,12 +66,12 @@ function analyzeList(htmlResponse, isFirstPage) {
         threadIdInt = parseInt(threadIdString[0])
     }
     let csIdFormat = "#normalthread_{0} > tr > th > a.s.xst"
-    console.log("new loop")
     let trans = idb.transaction(["awesome"], "readwrite")
     // console.log(trans)
     let objectStore = trans.objectStore("awesome")
+    console.log("is 1st page? " + isFirstPage)
     // console.log(objectStore)
-    for (let i = threadIdInt; i > threadIdInt - 1500; i--) {
+    for (let i = threadIdInt; i > threadIdInt - 2500; i--) {
         let cstextf = stringFormat(csIdFormat, i)
         let rt = doc.find(cstextf)
         if (rt.length != 0) {
@@ -73,14 +87,17 @@ function analyzeList(htmlResponse, isFirstPage) {
                     if (getq.result) {} else {
                         let obsq = objectStore.add({
                             sn: vvsn,
-                            thz_detail_url: dtlurl,
-                            dmmhypsn: null
+                            thz_detail_url: dtlurl
+                            // dmmhypsn: null
                         })
                         obsq.onsuccess = function (event) {
                             // console.log(event.target)
                         }
                         obsq.onerror = function (event) {
                             console.log("add error" + obsq.error)
+                        }
+                        obsq.oncomplete = function () {
+                            console.log("add sn, detail url completed")
                         }
                     }
                 }
@@ -90,6 +107,7 @@ function analyzeList(htmlResponse, isFirstPage) {
                     async: true,
                     success: function (data, textStatus, jqXHR) {
                         analyzeTorretLink(data, vvsn)
+                        // console.log("analyzing Torrent Link")
                     },
                     error: function (jqXHR, textStatus, errorThrown) {}
                 })
@@ -114,6 +132,7 @@ function analyzeTorretLink(htmlResponse, avsn) {
         async: true,
         success: function (data, textStatus, jqXHR) {
             analyzeDlLink(data, rt.text(), avsn)
+            // console.log("analyzing DL link")
         },
         error: function (jqXHR, textStatus, errorThrown) {}
     })
@@ -123,23 +142,24 @@ function analyzeDlLink(htmlResponse, filename, avsn) {
     let ptn = new RegExp(/http:\/\/thzbt.co\/forum.php\?mod=attachment&aid=\w+/g)
     let rtn
     if ((rtn = ptn.exec(htmlResponse)) != null) {
-        // dlTorrent(rtn[0], filename)
+        dlTorrent(rtn[0], filename)
         let torrentUrl = rtn[0]
-        setTimeout(() => {
-            let trans = idb.transaction(["awesome"], "readwrite")
-            let objectStore = trans.objectStore("awesome")
-            objectStore.openCursor().onsuccess = function (event) {
-                let cursor = event.target.result
-                if (cursor) {
-                    let sn = cursor.value.sn
-                    if (sn == avsn) {
-                        cursor.value.torrent_link = torrentUrl
-                        cursor.update(cursor.value)
-                    }
-                    cursor.continue()
+        // setTimeout(() => {
+        let trans = idb.transaction(["awesome"], "readwrite")
+        let objectStore = trans.objectStore("awesome")
+        objectStore.openCursor().onsuccess = function (event) {
+            let cursor = event.target.result
+            if (cursor) {
+                let sn = cursor.value.sn
+                if (sn == avsn) {
+                    cursor.value.torrent_link = torrentUrl
+                    cursor.update(cursor.value)
                 }
+                cursor.continue()
             }
-        }, 10000)
+        }
+        console.log("analyzing dl link over")
+        // }, 1000)
     }
 }
 
@@ -155,8 +175,8 @@ function dlTorrent(url, targetFilename) {
     }))
 }
 
-function openDB() {
-    let dbopenrequest = window.indexedDB.open("avdb", 1)
+function openDB(resolve, reject) {
+    let dbopenrequest = window.indexedDB.open("avdb", 2)
 
     dbopenrequest.onerror = function (event) {
         console.log("Database error: " + event.target.errorCode)
@@ -165,6 +185,7 @@ function openDB() {
     dbopenrequest.onsuccess = function (event) {
         console.log("Database open success")
         idb = dbopenrequest.result
+        resolve()
     }
 
     dbopenrequest.onupgradeneeded = function (event) {
@@ -180,51 +201,74 @@ function openDB() {
             objectStore.createIndex("sn", "sn", {
                 unique: false
             })
-            objectStore.createIndex("dmmsn", "dmmsn", {
+            objectStore.createIndex("dmm_hyp_sn", "dmm_hyp_sn", {
+                unique: false
+            })
+        }
+        if (event.oldVersion < 2) {
+            let objectStore = db.createObjectStore("genre", {
+                autoIncrement: true
+            })
+            objectStore.createIndex("genre", "genre", {
                 unique: false
             })
         }
     }
 }
 
-function generateDmmSn() {
-    let trans = idb.transaction(["awesome"], "readwrite")
-    let objectStore = trans.objectStore("awesome")
-    objectStore.openCursor().onsuccess = function (event) {
-        let cursor = event.target.result
-        if (cursor) {
-            let sn = cursor.value.sn
-            let dsn = sn.replace("-", "00")
-            cursor.value.dmmsn = dsn
-            cursor.update(cursor.value)
-            cursor.continue()
+// 生成dmm的猜想sn
+function generateDmmGuessSn() {
+    return new Promise((resolve, reject) => {
+        console.log("start generateDmmGuessSn")
+        let trans = idb.transaction(["awesome"], "readwrite")
+        let objectStore = trans.objectStore("awesome")
+        objectStore.openCursor().onsuccess = function (event) {
+            let cursor = event.target.result
+            if (cursor) {
+                let sn = cursor.value.sn
+                let dsn = sn.replace("-", "00")
+                cursor.value.dmm_guess_sn = dsn
+                cursor.update(cursor.value)
+                cursor.continue()
+            }
         }
-    }
+        setTimeout(() => {
+            console.log("generateDmmGuessSn over")
+            resove()
+        }, 2000);
+    })
 }
 
 function delDuplication() {
-    let t1 = idb.transaction(["awesome"], "readwrite")
-    let o1 = t1.objectStore("awesome")
-    let qu = o1.index("sn")
-    let i = 0
-    let prvobj
-    qu.openCursor().onsuccess = function (event) {
-        let inner_cursor = event.target.result
-        if (inner_cursor) {
-            if (prvobj == inner_cursor.value.sn) {
-                console.log("find same: " + inner_cursor.value.sn)
-                let dqu = inner_cursor.delete()
-                dqu.onsuccess = function () {
-                    console.log('Deleted success.')
+    return new Promise((resolve, reject) => {
+        console.log("start delDuplication")
+        let t1 = idb.transaction(["awesome"], "readwrite")
+        let o1 = t1.objectStore("awesome")
+        let qu = o1.index("sn")
+        let i = 0
+        let prvobj
+        qu.openCursor().onsuccess = function (event) {
+            let inner_cursor = event.target.result
+            if (inner_cursor) {
+                if (prvobj == inner_cursor.value.sn) {
+                    console.log("find same: " + inner_cursor.value.sn)
+                    let dqu = inner_cursor.delete()
+                    dqu.onsuccess = function () {
+                        console.log('Deleted success.')
+                    }
+                } else {
+                    // console.log("not same: " + inner_cursor.value.sn)
+                    prvobj = inner_cursor.value.sn
                 }
-            } else {
-                console.log("not same: " + inner_cursor.value.sn)
-                prvobj = inner_cursor.value.sn
+                i++
+                inner_cursor.continue()
             }
-            i++
-            inner_cursor.continue()
         }
-    }
+        setTimeout(() => {
+            console.log("delDuplication over")
+            resolve()
+        }, 2000);
+    })
 }
 
 function findSn(findString) {
@@ -237,55 +281,100 @@ function findSn(findString) {
     }
 }
 
-function vdmm(dmmsn) {
+// 直接用猜想sn访问dmm
+function vDmmDetailByGuess(dmmGuessSn) {
     $.ajax({
-        url: "http://www.dmm.co.jp/digital/videoa/-/detail/=/cid=" + dmmsn + "/",
+        url: "http://www.dmm.co.jp/digital/videoa/-/detail/=/cid=" + dmmGuessSn + "/",
         method: "get",
         async: true,
         success: function (data, textStatus, jqXHR) {
-            analyzedmm(data, dmmsn)
+            analyzeDmmDetail(data, dmmGuessSn)
         },
-        error: function (jqXHR, textStatus, errorThrown) {}
+        error: function (jqXHR, textStatus, errorThrown) {
+            // 没找到会到这里来 404
+            dmmSearch(dmmGuessSn)
+        }
     })
 }
 
-function analyzedmm(htmlResponse, dmmsn) {
-    let doc = $(htmlResponse)
-    // let cst = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(3) > td.nw"
+// dmm搜索
+function dmmSearch(searchStr) {
+    $.ajax({
+        url: "http://www.dmm.co.jp/search/=/searchstr=" + searchStr + "/analyze=V1EBAVcHUwE_/limit=30/n1=FgRCTw9VBA4GAVhfWkIHWw__/n2=Aw1fVhQKX1ZRAlhMUlo5QQgBU1lR/sort=ranking/",
+        method: "get",
+        async: true,
+        success: function (data, textStatus, jqXHR) {
+            analyzeDmmSearch(data, searchStr)
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+            // console.log(jqXHR.status)
+        }
+    })
+}
 
+// 分析dmm搜索结果
+function analyzeDmmSearch(htmlResponse, searchStr) {
+    let doc = $(htmlResponse)
+
+    let csnotfind = "#main-src > div:nth-child(1) > div:nth-child(2) > div > div > p"
+    let rtnotfind = doc.find(csnotfind)
+    if (rtnotfind.length > 0) {
+        return
+    }
+    console.log(searchStr)
+    let csitem = "#list > li > div > p.tmb > a"
+    let rtitem = doc.find(csitem)
+    console.log("find av    " + searchStr + "    " + rtitem.length)
+    // console.log(rtitem)
+    // console.log(rtitem[0])
+    let detailUrl = rtitem.attr("href")
+    if (detailUrl != null) {
+        $.ajax({
+            url: detailUrl,
+            method: "get",
+            async: true,
+            success: function (data, textStatus, jqXHR) {
+                analyzeDmmDetail(data, searchStr)
+            },
+            error: function (jqXHR, textStatus, errorThrown) {
+                // console.log(jqXHR.status)
+            }
+        })
+    }
+}
+
+// 分析dmm详细页面，并写入db
+function analyzeDmmDetail(htmlResponse, dmmHypSn) {
+    let doc = $(htmlResponse)
+    // タイトル
+    let csTitle = "#title"
     // 配信開始日
     let csStartSend = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(3) > td:nth-child(2)"
-
     // 商品発売日
     let csStartSell = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(4) > td:nth-child(2)"
-
     // 収録時間
     let csVedioLength = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(5) > td:nth-child(2)"
-
     // 出演者
     let csAvActors = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(6) > td:nth-child(2)"
-
     // 監督
     let csDirector = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(7) > td:nth-child(2) > a"
-
     // シリーズ
     let csSeries = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(8) > td:nth-child(2) > a"
-
     // メーカー
     let csMaker = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(9) > td:nth-child(2) > a"
-
     // レーベル
     let csLebel = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(10) > td:nth-child(2) > a"
-
     // ジャンル
     let csGenre = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(11) > td:nth-child(2)"
-
     // 品番
     let csSn = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(12) > td:nth-child(2)"
-
     // 平均評価
     let csEvaluate = "#mu > div > table > tbody > tr > td:nth-child(1) > table.mg-b20 > tbody > tr:nth-child(11) > td:nth-child(2)"
 
+    let rtTitle = doc.find(csTitle)
+    if (rtTitle.length < 1) {
+        return
+    }
     let rtStartSend = doc.find(csStartSend)
     let rtStartSell = doc.find(csStartSell)
     let rtVedioLength = doc.find(csVedioLength)
@@ -296,59 +385,214 @@ function analyzedmm(htmlResponse, dmmsn) {
     let rtLebel = doc.find(csLebel)
     let rtGenre = doc.find(csGenre)
     let rtSn = doc.find(csSn)
-    let rtEvaluate = doc.find(csEvaluate)
-    console.log(rtStartSend.text().trim())
-    console.log(rtStartSell.text().trim())
-    console.log(rtVedioLength.text().trim())
-    // console.log(rtAvActors.text().trim())
-    console.log(rtAvActors.text().trim().split("\n"))
-    console.log(rtDirector.text().trim())
-    console.log(rtSeries.text().trim())
-    console.log(rtMaker.text().trim())
-    console.log(rtLebel.text().trim())
-    // console.log(rtGenre.text().trim())
-    console.log(rtGenre.text().trim().split("  "))
-    console.log(rtSn.text().trim())
 
     let t1 = idb.transaction(["awesome"], "readwrite")
     let o1 = t1.objectStore("awesome")
     o1.openCursor().onsuccess = function (event) {
         let cursor = event.target.result
         if (cursor) {
-            let lcdmmsn = cursor.value.dmmsn
-            if (dmmsn == lcdmmsn) {
-                cursor.value.dmmhypsn = rtSn.text().trim()
-                cursor.update(cursor.value)
+            let lcdmmsn = cursor.value.dmm_guess_sn
+            if (dmmHypSn == lcdmmsn) {
+                let putDate = cursor.value
+                putDate.title = rtTitle.text().trim()
+                putDate.start_send = rtStartSend.text().trim()
+                putDate.start_sell = rtStartSell.text().trim()
+                putDate.vedio_length = rtVedioLength.text().trim()
+                putDate.actors = rtAvActors.text().trim().split("\n")
+                putDate.director = rtDirector.text().trim()
+                putDate.series = rtSeries.text().trim()
+                putDate.maker = rtMaker.text().trim()
+                putDate.lebel = rtLebel.text().trim()
+                putDate.genre = rtGenre.text().trim().split("  ")
+                putDate.dmm_hyp_sn = rtSn.text().trim()
+                putDate.info_source = "dmm"
+                cursor.update(putDate)
             }
             cursor.continue()
         }
     }
 }
 
-//main run
-let totalPageAmount
-let idb
-openDB()
-setTimeout(() => {
-    // v1stListPage()
-    // generateDmmSn()
-}, 3888)
-setTimeout(() => {
-    // findSn('mide-593')
-    // delDuplication()
-    // generateDmmSn()
-    // vRemainListPage()
-}, 8888)
+// 遍历全体，去dmm查找
+function getDmmInfo() {
+    return new Promise((resolve, reject) => {
+        let t1 = idb.transaction(["awesome"], "readwrite")
+        let o1 = t1.objectStore("awesome")
+        o1.openCursor().onsuccess = function (event) {
+            let cursor = event.target.result
+            if (cursor) {
+                if (!cursor.value.info_source) {
+                    vDmmDetailByGuess(cursor.value.dmm_guess_sn)
+                }
+                cursor.continue()
+            }
+        }
+        setTimeout(() => {
+            resolve()
+        }, 6000000)
+    })
+}
 
-setTimeout(() => {
-    vdmm()
+// 没有直接在dmm中找到，尝试搜索
+function notFindInDmm() {
     let t1 = idb.transaction(["awesome"], "readwrite")
     let o1 = t1.objectStore("awesome")
     o1.openCursor().onsuccess = function (event) {
         let cursor = event.target.result
         if (cursor) {
-            vdmm(cursor.value.dmmsn)
+            data = cursor.value
+            if (data.info_source === undefined) {
+                dmmSearch(data.dmm_guess_sn)
+            }
             cursor.continue()
         }
     }
-}, 3888)
+}
+
+// 填充genre内容
+function genGenre() {
+    let t = idb.transaction(["awesome", "genre"], "readwrite")
+    let osAwe = t.objectStore("awesome")
+    let osGen = t.objectStore("genre")
+    osAwe.openCursor().onsuccess = function (event) {
+        let cursor = event.target.result
+        if (cursor) {
+            data = cursor.value
+            if (data.genre !== undefined) {
+                for (i in data.genre) {
+                    osGen.add({
+                        genre: data.genre[i],
+                        sn: data.sn
+                    })
+                }
+            }
+            cursor.continue()
+        }
+    }
+    setTimeout(() => {
+        // resolve()
+        console.log("gen genre over")
+    }, 2000)
+}
+
+function getUniGenre() {
+    let t = idb.transaction(["genre"], "readwrite")
+    let osGen = t.objectStore("genre")
+    let ind = osGen.index("genre")
+    let cp = null
+    ind.openCursor().onsuccess = function (event) {
+        let cursor = event.target.result
+        if (cursor) {
+            let data = cursor.value
+            if (data.genre != cp) {
+                console.log(cursor.key)
+                cp = data.genre
+            } else {
+            }
+            cursor.continue()
+        }
+    }
+}
+
+function searchGenre(genreString) {
+    // console.log(genreArray[j])
+    let t = idb.transaction(["genre"], "readwrite")
+    let osGen = t.objectStore("genre")
+    let rtnArray = new Array()
+    osGen.openCursor().onsuccess = function (event) {
+        let cursor = event.target.result
+        if (cursor) {
+            data = cursor.value
+            // console.log(data.genre)
+            if (genreString == data.genre) {
+                // console.log(data.sn)
+                // console.log(data.genre)
+                rtnArray.push(data.sn)
+            }
+            cursor.continue()
+        }
+    }
+    return rtnArray
+}
+
+function searchActor(actorStr) {
+    // console.log(genreArray[j])
+    let t = idb.transaction(["awesome"], "readwrite")
+    let awGen = t.objectStore("awesome")
+    let snArray = new Array()
+    awGen.openCursor().onsuccess = function (event) {
+        let cursor = event.target.result
+        if (cursor) {
+            data = cursor.value
+            for (i in data.actors) {
+                if (data.actors[i] == actorStr) {
+                    console.log(actorStr + ":" + data.dmm_hyp_sn)
+                    snArray.push(data.dmm_hyp_sn)
+                }
+            }
+            cursor.continue()
+        }
+    }
+    return ("ajksd;flkjas")
+}
+
+function compareGenreSn(arrays) {
+    return new Promise((resolve, reject) => {
+        let comparedOutputArray = new Array()
+        for (i in arrays) {
+            if (i > 0) {
+                let comparedArray = new Array()
+                for (j in comparedOutputArray) {
+                    for (k in arrays[i]) {
+                        if (comparedOutputArray[j].sn == arrays[i][k].sn) {
+                            // console.log("found!!!")
+                            // console.log(comparedOutputArray[j])
+                            // console.log(arrays[i][k])
+                            comparedArray.push(comparedOutputArray[j])
+                        }
+                    }
+                }
+                // console.log("第" + i + "次比较结果为：")
+                // console.log(comparedArray)
+                comparedOutputArray = comparedArray
+                continue
+            }
+            comparedOutputArray = arrays[i]
+        }
+        let resultArray = new Array()
+        for (i in comparedOutputArray) {
+            resultArray.push(comparedOutputArray[i].sn)
+        }
+        // console.log(resultArray)
+        resolve(resultArray)
+    })
+}
+
+function loopSearchGenre(genreString) {
+    return new Promise((resolve, reject) => {
+        let t = idb.transaction(["genre"], "readwrite")
+        let osGen = t.objectStore("genre")
+        let ind = osGen.index("genre")
+        let getRequest = ind.getAll(genreString)
+        getRequest.onsuccess = function () {
+            resolve(getRequest.result)
+        }
+    })
+}
+
+
+//main run
+let totalPageAmount
+let idb
+// let wantSearches = ["美少女", "近親相姦", "中出し"]
+
+let pro1 = new Promise(openDB)
+let pro2 = pro1.then(getUniGenre)
+// let pro2 = pro1.then(v1stListPage)
+// let pro2 = pro1.then(v1stListPage).then(vRemainListPage).then(delDuplication).then(generateDmmGuessSn)
+// let pro2 = pro1.then(getDmmInfo)
+// let pro2 = pro1.then(genGenre)
+// let pro2 = pro1.then(searchGenres())
+// let pro2 = pro1.then(searchGenres).then(compareGenreSn).then(function(value){
+//     console.log(value)
+// })
