@@ -15,21 +15,39 @@
 
 <body>
     <div id="avsearch">
-        <button  v-on:click="v2">列出所有标签</button>
-        <br/>
-        <br/>
-        <input class="search_textbox" v-model="in_genres">
-        <button id="xb" v-on:click="v1">查询</button>
-        <button id="xb" v-on:click="clearText">清除</button>
+        <!-- <input class="search_textbox" v-model="in_genres"> -->
+        <div class="actor_lable_out">
+            <label class="actor_lable" v-for="(item, index) in in_actors" v-on:click="popActor(index)">
+                {{item}}
+            </label>
+        </div>
         <div class="genre_lable_out">
-            <label class="sn_lable" v-for="item in sns" v-on:click="showImg">
+            <label class="genre_lable" v-for="(item, index) in in_genres" v-on:click="popGenre(index)">
+                {{item}}
+            </label>
+        </div>
+        <button class="bbtn" v-on:click="startSearch">查询</button>
+        <button class="bbtn" v-on:click="clearText">清除</button>
+        <div class="genre_lable_out">
+            <label class="sn_lable" v-for="item in searchResults" v-on:click="showImg(item)">
                 {{item}}
             </label>
         </div>
         <img class="preview_img" v-if="is_show_img" v-bind:src="img_url"  alt="x" />
-        <hr>
-        <div class="genre_lable_out">
-            <label class="genre_lable" v-for="(item, index) in genres_list" v-on:click="getIndex(index)">
+        <div class="info_block">
+            <label class="info_label" v-for="(item, index) in info_list">
+                {{item}}
+            </label>
+        </div>
+        <button class="brbr" v-bind:class="{bbtn: is_show_actor, sbtn: !is_show_actor}" v-on:click="expandActors">收放女优</button>
+        <div class="actor_lable_out" v-if="is_show_actor">
+            <label class="actor_lable" v-for="(item, index) in actor_list" v-on:click="getActorIndex(index)">
+                {{item}}
+            </label>
+        </div>
+        <button class="brbr" v-bind:class="{bbtn: is_show_genre, sbtn: !is_show_genre}" v-on:click="expandGenres">收放体裁</button>
+        <div class="genre_lable_out" v-if="is_show_genre">
+            <label class="genre_lable" v-for="(item, index) in genre_list" v-on:click="getGenreIndex(index)">
                 {{item}}
             </label>
         </div>
